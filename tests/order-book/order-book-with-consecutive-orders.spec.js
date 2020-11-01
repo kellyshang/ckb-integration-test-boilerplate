@@ -9,7 +9,7 @@ describe('order test data for order-book', () => {
     let indexer;
     let deps;
     let defaultLockScript;
-    const occupiedCKBAmnt = 168n * 10n ** 8n; // occupied 167, plus 1 more
+    const occupiedCKBAmnt = 179n * 10n ** 8n; // occupied 178, plus 1 more
     const includFeeInPay = 1n + 3n/1000n; // the fee in Pay amount
 
     const ckb = getCKBSDK();
@@ -20,10 +20,12 @@ describe('order test data for order-book', () => {
     const alicePrivateKey = '0x650f2b74920bc2a3e5e33e5909cac206e38fc5fe8cb8b1596bf631a60057ff0e';
     const alicePublicKey = ckb.utils.privateKeyToPublicKey(alicePrivateKey);
     const alicePublicKeyHash = `0x${ckb.utils.blake160(alicePublicKey, 'hex')}`;
+    let aliceLockHash;
 
     const bobPrivateKey = '0x41f44f049b66b2d095d2c66a04b11b518feb6947b999e2b3d2fc2725e891e273';
     const bobPublicKey = ckb.utils.privateKeyToPublicKey(bobPrivateKey);
     const bobPublicKeyHash = `0x${ckb.utils.blake160(bobPublicKey, 'hex')}`;
+    let bobLockHash;
 
     const dealmakerPrivateKey = '0x44c3c2baf6559ae80516486dc08ce023f6a3911152600c456093c0ad03001d32';
     const dealmakerPublicKey = ckb.utils.privateKeyToPublicKey(dealmakerPrivateKey);
@@ -54,6 +56,21 @@ describe('order test data for order-book', () => {
             codeHash: deps.secp256k1Dep.codeHash,
             args: rootPublicKeyHash,
         };
+
+        const aliceLock = {
+            codeHash: deps.secp256k1Dep.codeHash,
+            hashType: 'type',
+            args: alicePublicKeyHash,
+        };
+        aliceLockHash = ckb.utils.scriptToHash(aliceLock);
+
+        const bobLock = {
+            codeHash: deps.secp256k1Dep.codeHash,
+            hashType: 'type',
+            args: bobPublicKeyHash,
+        };
+        bobLockHash = ckb.utils.scriptToHash(bobLock);
+        
     });
 
     describe('deploy sudt and order lock and create pending orders', () => {
@@ -62,8 +79,6 @@ describe('order test data for order-book', () => {
         let orderLockScriptDataHex;
         let orderLockCodeHash;
         // let secp256k1SignAllScriptDataHex;
-
-        let sudtType;
 
         const sudtCellDep = {
             outPoint: {
@@ -171,12 +186,12 @@ describe('order test data for order-book', () => {
             const aliceOrderLock = {
                 codeHash: orderLockCodeHash,
                 hashType: 'data',
-                args: alicePublicKeyHash,
+                args: aliceLockHash,
             };
             const bobOrderLock = {
                 codeHash: orderLockCodeHash,
                 hashType: 'data',
-                args: bobPublicKeyHash,
+                args: bobLockHash,
             };
             const dealmakerDefaultLock = {
                 ...defaultLockScript,
@@ -226,10 +241,24 @@ describe('order test data for order-book', () => {
                 lock: { ...defaultLockScript, args: publicKeyHash },
             });
 
+            const inputLock = {
+                codeHash: deps.secp256k1Dep.codeHash,
+                hashType: 'type',
+                args: publicKeyHash,
+            };
+
             const orderLock = {
                 codeHash: orderLockCodeHash,
                 hashType: 'data',
-                args: publicKeyHash,
+                args: ckb.utils.scriptToHash(inputLock),
+            };
+
+            let uuid;
+            uuid = ckb.utils.scriptToHash(defaultLockScript);
+            const sudtType = {
+                args: uuid,
+                hashType: 'type',
+                codeHash: ckb.utils.scriptToHash(typeIdScript),
             };
 
             const inputs = [cells[index]];
@@ -317,9 +346,8 @@ describe('order test data for order-book', () => {
         // issue sUDT and transfer udt
         before(async() => {
             let uuid;
-            let sudtType;
             uuid = ckb.utils.scriptToHash(defaultLockScript);
-            sudtType = {
+            const sudtType = {
                 args: uuid,
                 hashType: 'type',
                 codeHash: ckb.utils.scriptToHash(typeIdScript),
@@ -584,7 +612,7 @@ describe('order test data for order-book', () => {
             const bobOrder = {
                 publicKeyHash: bobPublicKeyHash,
                 sudtCurrentAmount: 100n * 10n ** 8n * includFeeInPay, //the Pay udt should include fee
-                orderAmount: 100n * 10n ** 8n * askPrice/10n**8n, //the Receive ckb amount for ask order
+                orderAmount: 100n * 10n ** 8n * askPrice/10n**10n, //the Receive ckb amount for ask order
                 price: askPrice,
                 isBid: false,
                 ckbAmount: occupiedCKBAmnt,
@@ -676,10 +704,10 @@ describe('order test data for order-book', () => {
             const aliceOrder = {
                 publicKeyHash: alicePublicKeyHash,
                 sudtCurrentAmount: 0n,
-                orderAmount: 100n * 10n ** 8n,
+                orderAmount: 50n * 10n ** 8n,
                 price: bidPrice,
                 isBid: true,
-                ckbAmount: 100300000000n + occupiedCKBAmnt, //1003
+                ckbAmount: 50150000000n + occupiedCKBAmnt, //501.5
             };
             const bobOrder = {
                 publicKeyHash: bobPublicKeyHash,
@@ -721,7 +749,7 @@ describe('order test data for order-book', () => {
 
         it('case4.1: same block - bid 1 - ask 2 - order amount all matched', async() => {
             let bidPrice1 = 10n * 10n ** 10n;
-            let askPrice1 = 9n * 10n ** 10n;
+            let askPrice1 = 10n * 10n ** 10n;
 
             const aliceOrder1 = {
                 publicKeyHash: alicePublicKeyHash,
@@ -741,7 +769,7 @@ describe('order test data for order-book', () => {
             };
 
             let bidPrice2 = 9n * 10n ** 10n;
-            let askPrice2 = 95000000000n; // 9.5
+            let askPrice2 = 100000000000n; // 10
 
             const aliceOrder2 = {
                 publicKeyHash: alicePublicKeyHash,
